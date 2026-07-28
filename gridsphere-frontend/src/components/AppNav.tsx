@@ -7,7 +7,7 @@ type AppNavProps = {
 };
 
 export default function AppNav({ variant }: AppNavProps) {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const location = useLocation();
 
   if (!token) return null;
@@ -25,6 +25,12 @@ export default function AppNav({ variant }: AppNavProps) {
         <DevicesIcon />
         <span>Devices</span>
       </NavLink>
+      {user?.role === "admin" && (
+        <NavLink to="/admin" className={({ isActive }) => (isActive ? "active" : "")}>
+          <DevicesIcon />
+          <span>Admin</span>
+        </NavLink>
+      )}
       <NavLink to="/profile" className={({ isActive }) => (isActive ? "active" : "")}>
         <ProfileIcon />
         <span>Profile</span>

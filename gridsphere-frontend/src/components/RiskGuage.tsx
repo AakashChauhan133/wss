@@ -38,9 +38,10 @@ export function RiskGauge({ pct, level, size = 140 }: RiskGaugeProps) {
       <text x={cx} y={cy - 4} textAnchor="middle" fontSize={size * 0.2} fontWeight={700} fill="var(--ink)">
         {clamped}%
       </text>
-      <text x={cx} y={cy + 16} textAnchor="middle" fontSize={size * 0.08} fill="var(--ink-dim)">
-  {level.charAt(0).toUpperCase() + level.slice(1)} Risk
+      <text x={cx} y={cy + 16} textAnchor="middle" fontSize={size * 0.08} fill="var(--ink-dim)" style={{ textTransform: "capitalize" }}>
+        {level} risk
       </text>
     </svg>
   );
 }
+

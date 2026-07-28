@@ -79,7 +79,6 @@ export interface DerivedMetrics {
   heatIndexC: number | null;
   vpdKPa: number | null;
   et0MmPerDay: number | null;
-  et0Source: "station" | "forecast" | null;
 }
 
 export interface Advisory {
@@ -134,11 +133,29 @@ export interface SubscriptionPlan {
   dataRetentionDays?: number | null;
 }
 
+export interface ChatMessage {
+  id: number;
+  role: "user" | "assistant";
+  content: string;
+  createdAt: string;
+}
+
+export interface WindRoseSector {
+  direction: string;
+  centerDeg: number;
+  count: number;
+}
+
 export interface WindAnalytics {
   averageSpeedMs: number | null;
   maxGustMs: number | null;
-  dominantDirection: string | null;
+  dominantDirection: string | null; 
   windRose: { direction: string; count: number; avgSpeedMs: number }[];
+}
+
+export interface RainDailyTotal {
+  date: string;
+  totalMm: number;
 }
 
 export interface RainAnalytics {
@@ -148,11 +165,4 @@ export interface RainAnalytics {
   maxIntensityMmPerHour: number | null;
   rainDurationHours: number | null;
   cumulativeSeries: { date: string; mm: number }[];
-}
-
-export interface ChatMessage {
-  id: number;
-  role: "user" | "assistant";
-  content: string;
-  createdAt: string;
 }

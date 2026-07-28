@@ -1,5 +1,5 @@
 import { apiClient } from "./client";
-import { Device, ForecastResult, Insights, AiAdvisory, WindAnalytics, RainAnalytics, ChatMessage } from "../types";
+import { Device, ForecastResult, Insights, AiAdvisory, WindAnalytics, RainAnalytics } from "../types";
 
 export interface DeviceCreatePayload {
   device_uid: string;
@@ -74,22 +74,40 @@ export async function downloadHistoryCsv(deviceId: number, range: HistoryRange):
   window.URL.revokeObjectURL(url);
 }
 
-export async function getWindAnalytics(deviceId: number, range = "weekly"): Promise<WindAnalytics> {
+export interface DeviceAssignment {
+  id: number;
+  userId: number;
+  isOwner: boolean;
+  role: string | null;
+  user: { id: number; name: string; email: string; role: string };
+}
+
+/** Admin only. Grants a user (by email) access to a device. */
+export async function assignDeviceToUser(deviceId: number, email: string): Promise<{ message: string }> {
+  const { data } = await apiClient.post(`/devices/${deviceId}/assign`, { email });
+  return data;
+}
+
+/** Admin only. Lists who currently has access to a device. */
+export async function listDeviceAssignments(deviceId: number): Promise<DeviceAssignment[]> {
+  const { data } = await apiClient.get(`/devices/${deviceId}/assignments`);
+  return data.data;
+}
+
+/** Admin only. Revokes a user's access to a device (cannot remove the owner). */
+export async function unassignDeviceFromUser(deviceId: number, userId: number): Promise<void> {
+  await apiClient.delete(`/devices/${deviceId}/assign/${userId}`);
+}
+
+export async function getWindAnalytics(deviceId: number, range: HistoryRange = "weekly"): Promise<WindAnalytics> {
   const { data } = await apiClient.get(`/devices/${deviceId}/wind-analytics`, { params: { range } });
   return data.data;
 }
 
-export async function getRainAnalytics(deviceId: number): Promise<RainAnalytics> {
-  const { data } = await apiClient.get(`/devices/${deviceId}/rain-analytics`);
+/** Returns null if the device has no rainfall sensor installed - a normal state, not an error. */
+export async function getRainAnalytics(deviceId: number, range: HistoryRange = "weekly"): Promise<RainAnalytics | null> {
+  const { data } = await apiClient.get(`/devices/${deviceId}/rain-analytics`, { params: { range } });
   return data.data;
 }
 
-export async function getChatHistory(deviceId: number): Promise<ChatMessage[]> {
-  const { data } = await apiClient.get(`/devices/${deviceId}/chat`);
-  return data.data;
-}
 
-export async function sendChatMessage(deviceId: number, message: string): Promise<string> {
-  const { data } = await apiClient.post(`/devices/${deviceId}/chat`, { message });
-  return data.data.reply;
-}

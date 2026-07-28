@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, FormEvent } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
   LineChart,
@@ -14,8 +14,18 @@ import { getDeviceHistory, HistoryRange } from "../api/devices";
 import { listDeviceSensors, listSensorTypes, updateDeviceSensor } from "../api/sensors";
 import { DeviceSensor, SensorReading, SensorType } from "../types";
 import AddSensorModal from "../components/AddSensorModal";
+import {
+  adminGetDevice,
+  adminUpdateDevice,
+  // adminListDeviceAssignments,
+  adminAssignDevice,
+  adminUnassignDevice,
+  DeviceAssignment,
+  adminListUsers,
+  AdminUser,
+} from "../api/admin";
 
-type Tab = "history" | "sensors";
+type Tab = "info" | "history" | "sensors" | "access";
 
 const LINE_COLORS = ["#1F6E44", "#E0932E", "#2F86C9", "#D64545", "#9b7fc7"];
 
@@ -23,13 +33,46 @@ export default function DeviceDetail() {
   const { deviceId } = useParams();
   const id = parseInt(deviceId || "0", 10);
 
-  const [tab, setTab] = useState<Tab>("history");
+  const [tab, setTab] = useState<Tab>("info");
   const [sensors, setSensors] = useState<DeviceSensor[]>([]);
   const [sensorTypes, setSensorTypes] = useState<SensorType[]>([]);
   const [historyReadings, setHistoryReadings] = useState<SensorReading[]>([]);
   const [range, setRange] = useState<HistoryRange>("weekly");
   const [showAddSensor, setShowAddSensor] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Device info
+  const [device, setDevice] = useState<any>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState<any>({});
+
+  // Access management
+  const [assignments, setAssignments] = useState<DeviceAssignment[]>([]);
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState<number | "">("");
+  const [isAssigning, setIsAssigning] = useState(false);
+  const [assignMessage, setAssignMessage] = useState<string | null>(null);
+
+  function loadDevice() {
+    adminGetDevice(id)
+      .then((data) => {
+        setDevice(data);
+        setEditForm(data);
+      })
+      .catch((err) => setError(err?.response?.data?.detail || "Could not load device"));
+  }
+
+  function loadAssignments() {
+    adminListDeviceAssignments(id)
+      .then(setAssignments)
+      .catch((err) => setError(err?.response?.data?.detail || "Could not load access list"));
+  }
+
+  function loadUsers() {
+    adminListUsers()
+      .then(setUsers)
+      .catch(() => {});
+  }
 
   async function loadSensors() {
     try {
@@ -42,7 +85,9 @@ export default function DeviceDetail() {
   }
 
   useEffect(() => {
+    loadDevice();
     loadSensors();
+    loadUsers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -53,14 +98,58 @@ export default function DeviceDetail() {
       .catch((err) => setError(err?.response?.data?.detail || "Could not load history"));
   }, [tab, range, id]);
 
+  useEffect(() => {
+    if (tab !== "access") return;
+    loadAssignments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, id]);
+
+  async function handleUpdateDevice(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    try {
+      await adminUpdateDevice(id, editForm);
+      setIsEditing(false);
+      loadDevice();
+    } catch (err: any) {
+      setError(err?.response?.data?.detail || "Update failed");
+    }
+  }
+
+  async function handleAssign(e: FormEvent) {
+    e.preventDefault();
+    if (selectedUserId === "") return;
+    setIsAssigning(true);
+    setAssignMessage(null);
+    setError(null);
+    try {
+      await adminAssignDevice(id, selectedUserId);
+      setAssignMessage("Access granted successfully");
+      setSelectedUserId("");
+      loadAssignments();
+    } catch (err: any) {
+      setError(err?.response?.data?.detail || "Could not grant access");
+    } finally {
+      setIsAssigning(false);
+    }
+  }
+
+  async function handleUnassign(userId: number) {
+    setError(null);
+    try {
+      await adminUnassignDevice(id, userId);
+      loadAssignments();
+    } catch (err: any) {
+      setError(err?.response?.data?.detail || "Could not revoke access");
+    }
+  }
+
   const sensorLabelById = useMemo(() => {
     const map = new Map<number, DeviceSensor>();
     sensors.forEach((s) => map.set(s.id, s));
     return map;
   }, [sensors]);
 
-  // Pivot history readings into a wide time series for the chart:
-  // [{ time, temp: 23.1, humidity: 60 }, ...]
   const chartData = useMemo(() => {
     const byTime = new Map<string, Record<string, number | string>>();
     for (const r of historyReadings) {
@@ -90,6 +179,8 @@ export default function DeviceDetail() {
     }
   }
 
+  if (!device) return <div className="loading-text">Loading device…</div>;
+
   return (
     <div className="container">
       <div className="page-header">
@@ -101,18 +192,179 @@ export default function DeviceDetail() {
           </p>
           <h1 className="page-title">Device #{id}</h1>
         </div>
+        {!isEditing && (
+          <button className="btn-secondary" onClick={() => setIsEditing(true)}>
+            Edit
+          </button>
+        )}
       </div>
 
       {error && <div className="error-banner">{error}</div>}
 
       <div className="tab-row">
+        <button className={`tab-btn ${tab === "info" ? "active" : ""}`} onClick={() => setTab("info")}>
+          Info
+        </button>
         <button className={`tab-btn ${tab === "history" ? "active" : ""}`} onClick={() => setTab("history")}>
           History
         </button>
         <button className={`tab-btn ${tab === "sensors" ? "active" : ""}`} onClick={() => setTab("sensors")}>
           Sensors
         </button>
+        <button className={`tab-btn ${tab === "access" ? "active" : ""}`} onClick={() => setTab("access")}>
+          Access
+        </button>
       </div>
+
+      {tab === "info" && (
+        <div className="panel" style={{ marginBottom: 32 }}>
+          <div className="panel-header">
+            <span className="panel-title">Device Information</span>
+          </div>
+          <div className="panel-body">
+            {isEditing ? (
+              <form onSubmit={handleUpdateDevice}>
+                <div className="field">
+                  <label>Device UID</label>
+                  <input
+                    value={editForm.deviceUid || ""}
+                    onChange={(e) => setEditForm({ ...editForm, deviceUid: e.target.value })}
+                  />
+                </div>
+                <div className="field">
+                  <label>Device Name</label>
+                  <input
+                    value={editForm.deviceName || ""}
+                    onChange={(e) => setEditForm({ ...editForm, deviceName: e.target.value })}
+                  />
+                </div>
+                <div className="field">
+                  <label>Description</label>
+                  <input
+                    value={editForm.description || ""}
+                    onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                  />
+                </div>
+                <div className="field">
+                  <label>Location Name</label>
+                  <input
+                    value={editForm.locationName || ""}
+                    onChange={(e) => setEditForm({ ...editForm, locationName: e.target.value })}
+                  />
+                </div>
+                <div className="field">
+                  <label>Latitude</label>
+                  <input
+                    type="number"
+                    step="any"
+                    value={editForm.latitude ?? ""}
+                    onChange={(e) => setEditForm({ ...editForm, latitude: e.target.value ? parseFloat(e.target.value) : null })}
+                  />
+                </div>
+                <div className="field">
+                  <label>Longitude</label>
+                  <input
+                    type="number"
+                    step="any"
+                    value={editForm.longitude ?? ""}
+                    onChange={(e) => setEditForm({ ...editForm, longitude: e.target.value ? parseFloat(e.target.value) : null })}
+                  />
+                </div>
+                <div className="field">
+                  <label>Frequency (minutes)</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={editForm.frequency || 5}
+                    onChange={(e) => setEditForm({ ...editForm, frequency: parseInt(e.target.value, 10) || 5 })}
+                  />
+                </div>
+
+                <div className="flex-row" style={{ marginTop: 20 }}>
+                  <button type="button" className="btn-secondary" onClick={() => setIsEditing(false)}>
+                    Cancel
+                  </button>
+                  <div className="spacer" />
+                  <button type="submit" className="btn-primary" style={{ width: "auto" }}>
+                    Save
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="info-grid">
+                <div>
+                  <div className="info-item-label">Device UID</div>
+                  <div className="info-item-value">{device.deviceUid}</div>
+                </div>
+                <div>
+                  <div className="info-item-label">Name</div>
+                  <div className="info-item-value">{device.deviceName || "—"}</div>
+                </div>
+                <div>
+                  <div className="info-item-label">Description</div>
+                  <div className="info-item-value">{device.description || "—"}</div>
+                </div>
+                <div>
+                  <div className="info-item-label">Location</div>
+                  <div className="info-item-value">{device.locationName || "—"}</div>
+                </div>
+                <div>
+                  <div className="info-item-label">Coordinates</div>
+                  <div className="info-item-value">
+                    {device.latitude !== null && device.longitude !== null
+                      ? `${device.latitude}, ${device.longitude}`
+                      : "Not set"}
+                  </div>
+                </div>
+                <div>
+                  <div className="info-item-label">Frequency</div>
+                  <div className="info-item-value">Every {device.frequency} min</div>
+                </div>
+                <div>
+                  <div className="info-item-label">Status</div>
+                  <div className="info-item-value">
+                    <span className={`pill ${device.status === "active" ? "on" : "off"}`}>{device.status}</span>
+                  </div>
+                </div>
+                <div>
+                  <div className="info-item-label">Last Seen</div>
+                  <div className="info-item-value">
+                    {device.lastSeenAt ? new Date(device.lastSeenAt).toLocaleString() : "Never"}
+                  </div>
+                </div>
+                {device.batteryLevel != null && (
+                  <div>
+                    <div className="info-item-label">Battery</div>
+                    <div className="info-item-value">
+                      {device.batteryLevel.toFixed(0)}%{device.isSolarCharging ? " ☀️ charging" : ""}
+                    </div>
+                  </div>
+                )}
+                {device.signalStrengthDbm != null && (
+                  <div>
+                    <div className="info-item-label">Signal</div>
+                    <div className="info-item-value">{device.signalStrengthDbm} dBm</div>
+                  </div>
+                )}
+                {device.firmwareVersion && (
+                  <div>
+                    <div className="info-item-label">Firmware</div>
+                    <div className="info-item-value">{device.firmwareVersion}</div>
+                  </div>
+                )}
+                <div>
+                  <div className="info-item-label">Crop</div>
+                  <div className="info-item-value">{device.crop?.name || "Not set"}</div>
+                </div>
+                <div>
+                  <div className="info-item-label">Users</div>
+                  <div className="info-item-value">{device.users?.length || 0}</div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {tab === "history" && (
         <div className="panel" style={{ marginBottom: 32 }}>
@@ -218,10 +470,86 @@ export default function DeviceDetail() {
         </div>
       )}
 
+      {tab === "access" && (
+        <div className="panel" style={{ marginBottom: 32 }}>
+          <div className="panel-header">
+            <span className="panel-title">Who Has Access</span>
+          </div>
+          <div className="panel-body">
+            {assignMessage && (
+              <div style={{ marginBottom: 14, fontSize: 13, color: "var(--brand-green-dark)" }}>{assignMessage}</div>
+            )}
+
+            <form onSubmit={handleAssign} className="flex-row" style={{ marginBottom: 20 }}>
+              <select
+                required
+                value={selectedUserId}
+                onChange={(e) => setSelectedUserId(parseInt(e.target.value, 10) || "")}
+                style={{
+                  flex: 1,
+                  background: "#fff",
+                  border: "1px solid var(--hairline)",
+                  borderRadius: "var(--radius-sm)",
+                  padding: "9px 12px",
+                  fontSize: 14,
+                }}
+              >
+                <option value="">— Select a user —</option>
+                {users.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.name} ({u.email})
+                  </option>
+                ))}
+              </select>
+              <button type="submit" className="btn-primary" style={{ width: "auto" }} disabled={isAssigning}>
+                {isAssigning ? "Granting…" : "Grant access"}
+              </button>
+            </form>
+
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {assignments.map((a) => (
+                  <tr key={a.id}>
+                    <td>{a.user.name}</td>
+                    <td>{a.user.email}</td>
+                    <td>
+                      <span className={`pill ${a.isOwner ? "on" : "off"}`}>{a.isOwner ? "owner" : "viewer"}</span>
+                    </td>
+                    <td>
+                      {!a.isOwner && (
+                        <button className="btn-ghost" onClick={() => handleUnassign(a.userId)}>
+                          Revoke
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {assignments.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="muted" style={{ padding: 20 }}>
+                      No users have access yet.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {showAddSensor && (
         <AddSensorModal
           deviceId={id}
           sensorTypes={sensorTypes}
+          installedSensorTypeIds={sensors.filter((s) => s.isActive).map((s) => s.sensorTypeId)}
           onClose={() => setShowAddSensor(false)}
           onCreated={() => {
             setShowAddSensor(false);

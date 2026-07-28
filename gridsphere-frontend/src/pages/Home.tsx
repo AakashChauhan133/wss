@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useDevices } from "../context/DeviceContext";
+import { useAuth } from "../context/AuthContext";
 import { listDeviceSensors, getRecentReadings } from "../api/sensors";
 import { DeviceSensor, SensorReading } from "../types";
 import { getMetricMeta, formatMetricValue } from "../utils/metrics";
@@ -8,20 +9,25 @@ import InsightsPanel from "../components/InsightsPanel";
 import ForecastPanel from "../components/ForecastPanel";
 import CropSelector from "../components/CropSelector";
 import AdvisoryPanel from "../components/AdvisoryPanel";
-import WindRainAnalytics from "../components/WindRainAnalytics";
-import ChatAssistant from "../components/ChatAssistant";
+import WindAnalyticsPanel from "../components/WindAnalyticsPanel";
+import RainAnalyticsPanel from "../components/RainAnalyticsPanel";
+import ChatPanel from "../components/ChatPanel";
 
-type Tab = "conditions" | "advisory" | "insights" | "forecast";
+type Tab = "conditions" | "advisory" | "insights" | "forecast" | "analytics" | "chat";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "conditions", label: "Conditions" },
   { key: "advisory", label: "Advisory" },
   { key: "insights", label: "Insights" },
   { key: "forecast", label: "Forecast" },
+  { key: "analytics", label: "Analytics" },
+  { key: "chat", label: "Chat" },
 ];
 
 export default function Home() {
   const { selectedDevice, isLoading: devicesLoading, error: devicesError } = useDevices();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
   const [tab, setTab] = useState<Tab>("conditions");
   const [sensors, setSensors] = useState<DeviceSensor[]>([]);
   const [readings, setReadings] = useState<SensorReading[]>([]);
@@ -75,10 +81,16 @@ export default function Home() {
       <div className="container">
         <div className="empty-state panel" style={{ marginTop: 24 }}>
           <h3>No devices yet</h3>
-          <p>Register a weather station device to start seeing live field conditions.</p>
-          <Link to="/devices" className="btn-ghost" style={{ display: "inline-block", marginTop: 12, textDecoration: "none" }}>
-            Go to Devices
-          </Link>
+          {isAdmin ? (
+            <>
+              <p>Register a weather station device to start seeing live field conditions.</p>
+              <Link to="/devices" className="btn-ghost" style={{ display: "inline-block", marginTop: 12, textDecoration: "none" }}>
+                Go to Devices
+              </Link>
+            </>
+          ) : (
+            <p>No device has been assigned to your account yet. Ask your admin to grant you access to one.</p>
+          )}
         </div>
       </div>
     );
@@ -178,10 +190,13 @@ export default function Home() {
           {sensors.length === 0 && (
             <p className="muted">
               No sensors installed on this device yet.{" "}
-              <Link to={`/devices/${selectedDevice.id}`} style={{ color: "var(--brand-green)", fontWeight: 600 }}>
-                Install one
-              </Link>
-              .
+              {isAdmin ? (
+                <Link to={`/devices/${selectedDevice.id}`} style={{ color: "var(--brand-green)", fontWeight: 600 }}>
+                  Install one
+                </Link>
+              ) : (
+                "Ask your admin to install one."
+              )}
             </p>
           )}
 
@@ -220,8 +235,6 @@ export default function Home() {
                 );
               })}
           </div>
-
-          <WindRainAnalytics deviceId={selectedDevice.id} />
         </>
       )}
 
@@ -247,7 +260,20 @@ export default function Home() {
         </div>
       )}
 
-      <ChatAssistant deviceId={selectedDevice.id} />
+      {tab === "analytics" && (
+        <div style={{ paddingBottom: 32 }}>
+          <WindAnalyticsPanel deviceId={selectedDevice.id} />
+          <RainAnalyticsPanel deviceId={selectedDevice.id} />
+        </div>
+      )}
+
+      {tab === "chat" && (
+        <div style={{ paddingBottom: 32 }}>
+          <ChatPanel deviceId={selectedDevice.id} />
+        </div>
+      )}
     </div>
   );
 }
+
+

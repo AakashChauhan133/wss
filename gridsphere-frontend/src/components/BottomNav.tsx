@@ -2,26 +2,14 @@ import { NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { HomeIcon, DevicesIcon, ProfileIcon } from "./icons";
 
-/**
- * Mirrors the mobile app's bottom tab bar, but only includes tabs that
- * have a real backend route behind them:
- *   - Home     -> live field conditions for the selected device
- *   - Devices  -> device list / register / sensors / history
- *   - Profile  -> account info + logout
- *
- * The mobile app also has "Protection" (fungal/pest risk), "Soil"
- * (spray timing + soil parameters), and "Alerts" (threshold config) tabs.
- * None of those have a corresponding API route in the current backend
- * (no disease/pest model, no forecast integration, no soil-nutrient
- * model, no alerts/notifications model) so they are intentionally left
- * out here rather than linking to empty pages.
- */
 export default function BottomNav() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const location = useLocation();
 
   if (!token) return null;
   if (location.pathname === "/login" || location.pathname === "/register") return null;
+
+  const isAdmin = user?.role === "admin";
 
   return (
     <nav className="bottom-nav">
@@ -29,10 +17,23 @@ export default function BottomNav() {
         <HomeIcon />
         Home
       </NavLink>
-      <NavLink to="/devices" className={({ isActive }) => (isActive ? "active" : "")}>
-        <DevicesIcon />
-        Devices
-      </NavLink>
+      {isAdmin && (
+        <NavLink to="/devices" className={({ isActive }) => (isActive ? "active" : "")}>
+          <DevicesIcon />
+          Devices
+        </NavLink>
+      )}
+      {isAdmin && (
+        <NavLink to="/admin/users" className={({ isActive }) => (isActive ? "active" : "")}>
+          <svg viewBox="0 0 24 24" width={20} height={20} fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" strokeLinecap="round" />
+            <circle cx="9" cy="7" r="4" />
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87" strokeLinecap="round" />
+            <path d="M16 3.13a4 4 0 0 1 0 7.75" strokeLinecap="round" />
+          </svg>
+          Users
+        </NavLink>
+      )}
       <NavLink to="/profile" className={({ isActive }) => (isActive ? "active" : "")}>
         <ProfileIcon />
         Profile

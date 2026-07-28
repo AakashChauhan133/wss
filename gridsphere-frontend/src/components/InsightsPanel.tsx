@@ -62,18 +62,7 @@ export default function InsightsPanel({ deviceId }: { deviceId: number }) {
             )}
             {derivedMetrics.et0MmPerDay !== null && (
               <div className="readout-tile" style={{ cursor: "default" }}>
-                <div className="readout-label">
-                  Evapotranspiration
-                  <br />
-                  {derivedMetrics.et0Source === "forecast" && (
-                    <span
-                      title="Not enough station data yet today - estimated from the forecast's daily min/max temperature instead."
-                      style={{fontSize: 10, fontWeight: 700, color: "var(--ink-dim)", textTransform: "uppercase" }}
-                    >
-                      (forecast est.)
-                    </span>
-                  )}
-                </div>
+                <div className="readout-label">Evapotranspiration</div>
                 <div>
                   <span className="readout-value">{derivedMetrics.et0MmPerDay}</span>
                   <span className="readout-unit">mm/day</span>
@@ -108,3 +97,5 @@ export default function InsightsPanel({ deviceId }: { deviceId: number }) {
     </div>
   );
 }
+
+

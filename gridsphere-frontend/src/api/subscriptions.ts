@@ -10,3 +10,5 @@ export async function getDeviceSubscription(deviceId: number) {
   const { data } = await apiClient.get(`/subscriptions/device/${deviceId}`);
   return data.data;
 }
+
+

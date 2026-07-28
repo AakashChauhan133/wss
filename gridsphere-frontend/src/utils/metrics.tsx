@@ -75,3 +75,4 @@ export function formatMetricValue(sensorLabel: string, value: number): string {
   if (meta.format) return meta.format(value);
   return `${value.toFixed(1)}${meta.unit ? " " + meta.unit : ""}`;
 }
+

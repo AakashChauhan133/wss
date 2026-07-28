@@ -171,3 +171,4 @@ export default function AdvisoryPanel({ deviceId, hasCrop }: { deviceId: number;
     </div>
   );
 }
+

@@ -34,3 +34,4 @@ export function getDiseaseIcon(_name: string, size = 18) {
   // returning a per-risk `icon` field, swap this for a direct lookup.
   return <LeafIcon size={size} />;
 }
+

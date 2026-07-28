@@ -100,3 +100,5 @@ export const RainIcon = ({ size = 18 }: IconProps) => (
     <path d="M9 18v2M13 18v2M17 18v2" strokeLinecap="round" />
   </svg>
 );
+
+

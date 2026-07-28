@@ -1,27 +1,45 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useState, useEffect } from "react";
 import { createDevice, DeviceCreatePayload } from "../api/devices";
+import { adminCreateDevice, adminListUsers, AdminUser } from "../api/admin";
+import { useAuth } from "../context/AuthContext";
 
 interface Props {
   onClose: () => void;
   onCreated: () => void;
+  isAdmin?: boolean;
 }
 
-export default function AddDeviceModal({ onClose, onCreated }: Props) {
-  const [form, setForm] = useState<DeviceCreatePayload>({
+export default function AddDeviceModal({ onClose, onCreated, isAdmin = false }: Props) {
+  const { user } = useAuth();
+  const [form, setForm] = useState<DeviceCreatePayload & { assign_to_user_id?: number | null }>({
     device_uid: "",
     device_name: "",
     location_name: "",
     frequency: 5,
+    assign_to_user_id: null,
   });
+  const [users, setUsers] = useState<AdminUser[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (isAdmin) {
+      adminListUsers()
+        .then(setUsers)
+        .catch(() => {});
+    }
+  }, [isAdmin]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     setIsSubmitting(true);
     try {
-      await createDevice(form);
+      if (isAdmin) {
+        await adminCreateDevice(form);
+      } else {
+        await createDevice(form);
+      }
       onCreated();
     } catch (err: any) {
       setError(err?.response?.data?.detail || "Could not register device");
@@ -33,7 +51,7 @@ export default function AddDeviceModal({ onClose, onCreated }: Props) {
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <form className="modal-card" onClick={(e) => e.stopPropagation()} onSubmit={handleSubmit}>
-        <p className="section-title">Register Device</p>
+        <p className="section-title">Register Device {isAdmin ? "(Admin)" : ""}</p>
 
         {error && <div className="error-banner">{error}</div>}
 
@@ -74,6 +92,23 @@ export default function AddDeviceModal({ onClose, onCreated }: Props) {
             onChange={(e) => setForm({ ...form, frequency: parseInt(e.target.value, 10) || 5 })}
           />
         </div>
+
+        {isAdmin && (
+          <div className="field">
+            <label>Assign to user (optional)</label>
+            <select
+              value={form.assign_to_user_id || ""}
+              onChange={(e) => setForm({ ...form, assign_to_user_id: e.target.value ? parseInt(e.target.value, 10) : null })}
+            >
+              <option value="">— None —</option>
+              {users.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.name} ({u.email})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div className="flex-row" style={{ marginTop: 20 }}>
           <button type="button" className="btn-secondary" onClick={onClose}>

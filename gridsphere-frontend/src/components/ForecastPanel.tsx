@@ -91,3 +91,5 @@ export default function ForecastPanel({ deviceId, hasLocation }: { deviceId: num
     </div>
   );
 }
+
+

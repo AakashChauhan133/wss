@@ -22,3 +22,5 @@ export async function setDeviceCrop(deviceId: number, cropCode: string | null): 
   const { data } = await apiClient.post(`/devices/${deviceId}/crop`, { crop_code: cropCode });
   return data.data;
 }
+
+

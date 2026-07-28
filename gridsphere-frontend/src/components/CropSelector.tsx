@@ -130,3 +130,5 @@ export default function CropSelector({ device }: { device: Device }) {
     </div>
   );
 }
+
+
