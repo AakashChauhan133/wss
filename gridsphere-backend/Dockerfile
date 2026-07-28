@@ -11,7 +11,7 @@ RUN npm cache clean --force
 COPY . .
 
 RUN npx prisma generate
-RUN npm run build || echo "Build completed"
+RUN npm run build
 
 FROM node:20-alpine
 
@@ -25,7 +25,6 @@ RUN npm ci --only=production && npm cache clean --force
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/src/config/openapi.yaml ./src/config/openapi.yaml 2>/dev/null || true
 
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nodejs -u 1001 && \
